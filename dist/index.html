@@ -150,16 +150,14 @@
     if(!samMapW||!samMapH){samUnion=null;return}const pixels=samMapW*samMapH,combined=new Uint8Array(pixels);for(const r of samRegions){if(!r.selected)continue;for(let i=0;i<pixels;i++)if(r.mask[i])combined[i]=1}samUnion=samRegions.length?cleanSamUnion(combined,samMapW,samMapH):combined
   }
   function refineSamAlpha(binary,w,h){
-    const pixels=w*h,inside=morphMask(binary,w,h,3,false),outside=morphMask(binary,w,h,3,true),alpha=new Uint8ClampedArray(pixels),src=sourceData.data;
+    const pixels=w*h,inside=morphMask(binary,w,h,1,false),outside=morphMask(binary,w,h,1,true),alpha=new Uint8ClampedArray(pixels);
     for(let i=0;i<pixels;i++)alpha[i]=binary[i]?255:0;
-    for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=y*w+x;if(inside[i]||!outside[i])continue;let fr=0,fg=0,fb=0,fc=0,br=0,bg=0,bb=0,bc=0;
-      for(let dy=-4;dy<=4;dy++){const ny=y+dy;if(ny<0||ny>=h)continue;for(let dx=-4;dx<=4;dx++){const nx=x+dx;if(nx<0||nx>=w)continue;const n=ny*w+nx,j=n*4;if(inside[n]){fr+=src[j];fg+=src[j+1];fb+=src[j+2];fc++}else if(!outside[n]){br+=src[j];bg+=src[j+1];bb+=src[j+2];bc++}}}
-      if(!fc||!bc){alpha[i]=binary[i]?224:31;continue}fr/=fc;fg/=fc;fb/=fc;br/=bc;bg/=bc;bb/=bc;const dr=fr-br,dg=fg-bg,db=fb-bb,den=dr*dr+dg*dg+db*db,j=i*4;
-      const colorAlpha=den>36?Math.max(0,Math.min(1,((src[j]-br)*dr+(src[j+1]-bg)*dg+(src[j+2]-bb)*db)/den)):(binary[i]?1:0),prior=binary[i] ? .78 : .22;
-      alpha[i]=Math.round(Math.max(0,Math.min(1,colorAlpha*.72+prior*.28))*255)
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=y*w+x;if(inside[i]||!outside[i])continue;let weighted=0,total=0;
+      for(let dy=-1;dy<=1;dy++){const ny=y+dy;if(ny<0||ny>=h)continue;for(let dx=-1;dx<=1;dx++){const nx=x+dx;if(nx<0||nx>=w)continue;const weight=!dx&&!dy?4:(!dx||!dy?2:1);total+=weight;if(binary[ny*w+nx])weighted+=weight}}
+      const coverage=weighted/Math.max(1,total),t=Math.max(0,Math.min(1,(coverage-.22)/.56)),sharp=t*t*(3-2*t);
+      alpha[i]=Math.round(sharp*255)
     }
-    const smoothed=new Uint8ClampedArray(alpha);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;if(inside[i]||!outside[i])continue;smoothed[i]=Math.round((alpha[i]*4+alpha[i-1]+alpha[i+1]+alpha[i-w]+alpha[i+w])/8)}
-    return smoothed
+    return alpha
   }
   function drawSamOverlay(){
     if(!samActive||!samMapW||!samMapH)return;samOverlay.width=samMapW;samOverlay.height=samMapH;const g=samOverlay.getContext('2d'),im=g.createImageData(samMapW,samMapH),d=im.data,pixels=samMapW*samMapH;
