@@ -24,6 +24,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Node.js for checks
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate worker and model cache
+        run: node --test tests/model-cache.test.cjs
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
